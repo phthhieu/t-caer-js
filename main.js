@@ -55,18 +55,51 @@ const Tcaer = {
   render,
 }
 
-/** @jsx Tcaer.createElement */
-const element = (
-  <div style="font-size: 64px;">
-    <div style="background: yellow; color: green; padding: 8px; text-align: center;">
-      Hello world
-    </div>
-    <div style="background: green; color: yellow; margin-top: 12px; padding: 8px; text-align: center">
-      This is T-caer
-    </div>
-  </div>
-)
+const DEPTH = 16
+const COLS = 256
+const CELL = 8
+
+const WAVE_PERIOD = 8
+
+const t = Date.now() / 1000
+
+const plasmaColor = (index) => {
+  const col = index % COLS
+  const row = Math.floor(index / COLS)
+  const f1 = Math.sin(col / WAVE_PERIOD + t)
+  const f2 = Math.sin(row / WAVE_PERIOD + t)
+  const f3 = Math.sin((row + col) / (WAVE_PERIOD * 1.5) + t)
+  const f4 = Math.sin(
+    Math.sqrt(col * col + row * row) / WAVE_PERIOD + t
+  )
+  const hue = (f1 + f2 + f3 + f4) * 45 + 180
+  return {
+    color: `hsl(${hue},90%,55%)`,
+    col,
+    row,
+  }
+}
+
+const buildHeavyTree = (depth, index = 0) => {
+  if (depth === 0) {
+    const { color } = plasmaColor(index)
+    return Tcaer.createElement("div", {
+      style: `width:${CELL}px;height:${CELL}px;background:${color};display:inline-block`,
+    })
+  }
+  return Tcaer.createElement(
+    "div",
+    { style: "display:inline" },
+    buildHeavyTree(depth - 1, index * 2),
+    buildHeavyTree(depth - 1, index * 2 + 1)
+  )
+}
 
 const container = document.getElementById("root")
+container.style = `width:${COLS * CELL}px;line-height:0;font-size:0`
 
-Tcaer.render(element, container)
+const heavyElement = buildHeavyTree(DEPTH)
+
+console.time("render")
+Tcaer.render(heavyElement, container)
+console.timeEnd("render")
