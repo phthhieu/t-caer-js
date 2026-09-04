@@ -77,6 +77,7 @@ const asyncRender = (element, container) => {
     if (fiber.dom == null) {
       fiber.dom = createDom(fiber)
     }
+
     if (fiber.parent) {
       fiber.parent.dom.appendChild(fiber.dom)
     }
@@ -188,8 +189,11 @@ const container = document.getElementById("root")
 /** @jsx Tcaer.createElement */
 const heavyElement = (
   <div>
-    <span>Hello</span>
-    <span>World</span>
+    <span>
+      <span />
+      <span />
+    </span>
+    <span />
   </div>
 )
 
