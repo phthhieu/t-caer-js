@@ -50,9 +50,74 @@ const render = (element, container) => {
   container.appendChild(dom)
 }
 
+const asyncRender = (element, container) => {
+  function performNextUnitOfWork(fiber) {
+    console.log("fiber", fiber)
+    // Fiber node:
+    // ┌──────────────────────────────────────────────┐
+    // │  props, dom, type                            │
+    // │  parent  ──────────────────────────────────► │ parent fiber
+    // │  child   ──────────────────────────────────► │ first child
+    // │  sibling ──────────────────────────────────► │ next sibling
+    // └──────────────────────────────────────────────┘
+    if (fiber.dom == null) {
+      // create dom for fiber
+    }
+    if (fiber.parent) {
+      // fiber.parent.dom.appendChild(fiber.dom)
+    }
+    const elements = fiber.props.children
+    let index = 0
+    let nextSibling = null
+    while (index < elements.length) {
+      const element = elements[index]
+      const newFiber = {
+        type: element.type,
+        props: element.props,
+        parent: fiber,
+      }
+      if (index === 0) {
+        fiber.child = newFiber
+      } else {
+        nextSibling.sibling = newFiber
+      }
+      nextSibling = newFiber
+      index++
+    }
+    console.log({
+      fiber,
+      child: fiber.child,
+      sibling: fiber.sibling,
+    })
+    if (fiber.child) {
+      return fiber.child
+    }
+    if (fiber.sibling) {
+      return fiber.sibling
+    }
+  }
+
+  root = {
+    dom: container,
+    props: {
+      children: [element],
+    },
+  }
+
+  let nextUnitOfWork = root
+
+  function workLoop() {
+    while (nextUnitOfWork != null) {
+      nextUnitOfWork = performNextUnitOfWork(nextUnitOfWork)
+    }
+  }
+  requestIdleCallback(workLoop)
+}
+
 const Tcaer = {
   createElement,
   render,
+  asyncRender,
 }
 
 const DEPTH = 16
@@ -96,10 +161,16 @@ const buildHeavyTree = (depth, index = 0) => {
 }
 
 const container = document.getElementById("root")
-container.style = `width:${COLS * CELL}px;line-height:0;font-size:0`
+// container.style = `width:${COLS * CELL}px;line-height:0;font-size:0`
 
-const heavyElement = buildHeavyTree(DEPTH)
+/** @jsx Tcaer.createElement */
+const heavyElement = (
+  <div>
+    <span>Hello</span>
+    <span>World</span>
+  </div>
+)
 
 console.time("render")
-Tcaer.render(heavyElement, container)
+Tcaer.asyncRender(heavyElement, container)
 console.timeEnd("render")
