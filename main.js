@@ -50,9 +50,23 @@ const render = (element, container) => {
   container.appendChild(dom)
 }
 
+function createDom(fiber) {
+  const dom =
+    fiber.type === "TEXT_ELEMENT"
+      ? document.createTextNode("")
+      : document.createElement(fiber.type)
+
+  const isProperty = (key) => key !== "children"
+
+  Object.keys(fiber.props)
+    .filter(isProperty)
+    .forEach((name) => (dom[name] = fiber.props[name]))
+
+  return dom
+}
+
 const asyncRender = (element, container) => {
   function performNextUnitOfWork(fiber) {
-    console.log("fiber", fiber)
     // Fiber node:
     // ┌──────────────────────────────────────────────┐
     // │  props, dom, type                            │
@@ -61,10 +75,10 @@ const asyncRender = (element, container) => {
     // │  sibling ──────────────────────────────────► │ next sibling
     // └──────────────────────────────────────────────┘
     if (fiber.dom == null) {
-      // create dom for fiber
+      fiber.dom = createDom(fiber)
     }
     if (fiber.parent) {
-      // fiber.parent.dom.appendChild(fiber.dom)
+      fiber.parent.dom.appendChild(fiber.dom)
     }
     const elements = fiber.props.children
     let index = 0
@@ -84,11 +98,6 @@ const asyncRender = (element, container) => {
       nextSibling = newFiber
       index++
     }
-    console.log({
-      fiber,
-      child: fiber.child,
-      sibling: fiber.sibling,
-    })
     if (fiber.child) {
       return fiber.child
     }
@@ -106,10 +115,23 @@ const asyncRender = (element, container) => {
 
   let nextUnitOfWork = root
 
+  function commitWork(fiber) {
+    if (fiber == null) {
+      return
+    }
+    const parent = fiber.parent.dom
+    console.log("fiber dom", fiber.dom)
+    parent.appendChild(fiber.dom)
+    commitWork(fiber.child)
+    commitWork(fiber.sibling)
+  }
+
   function workLoop() {
     while (nextUnitOfWork != null) {
       nextUnitOfWork = performNextUnitOfWork(nextUnitOfWork)
     }
+
+    commitWork(root.child)
   }
   requestIdleCallback(workLoop)
 }
