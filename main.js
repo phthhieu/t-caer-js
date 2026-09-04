@@ -81,29 +81,36 @@ const asyncRender = (element, container) => {
     if (fiber.parent) {
       fiber.parent.dom.appendChild(fiber.dom)
     }
+
     const elements = fiber.props.children
     let index = 0
-    let nextSibling = null
+    let prevSibling = null
+
     while (index < elements.length) {
       const element = elements[index]
       const newFiber = {
         type: element.type,
         props: element.props,
         parent: fiber,
+        dom: null,
       }
       if (index === 0) {
         fiber.child = newFiber
       } else {
-        nextSibling.sibling = newFiber
+        prevSibling.sibling = newFiber
       }
-      nextSibling = newFiber
+      prevSibling = newFiber
       index++
     }
     if (fiber.child) {
       return fiber.child
     }
-    if (fiber.sibling) {
-      return fiber.sibling
+    let nextFiber = fiber
+    while (nextFiber) {
+      if (nextFiber.sibling) {
+        return nextFiber.sibling
+      }
+      nextFiber = nextFiber.parent
     }
   }
 
