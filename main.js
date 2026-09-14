@@ -66,6 +66,9 @@ function createDom(fiber) {
 }
 
 const asyncRender = (element, container) => {
+  // Debug: track which fibers are visited and in what order
+  const visitedMap = new Map() // fiber → 1-based visit order
+
   function performNextUnitOfWork(fiber) {
     // Fiber node:
     // ┌──────────────────────────────────────────────┐
@@ -74,6 +77,8 @@ const asyncRender = (element, container) => {
     // │  child   ──────────────────────────────────► │ first child
     // │  sibling ──────────────────────────────────► │ next sibling
     // └──────────────────────────────────────────────┘
+    visitedMap.set(fiber, visitedMap.size + 1)
+
     if (fiber.dom == null) {
       fiber.dom = createDom(fiber)
     }
@@ -102,9 +107,12 @@ const asyncRender = (element, container) => {
     if (fiber.child) {
       return fiber.child
     }
+    // BUG: only checks direct sibling — never walks up to the parent's sibling
     if (fiber.sibling) {
       return fiber.sibling
     }
+    // Reaches here when a node has no child AND no sibling → returns undefined,
+    // dropping the rest of the tree (e.g. parent's sibling is never returned)
   }
 
   root = {
@@ -117,19 +125,42 @@ const asyncRender = (element, container) => {
   let nextUnitOfWork = root
 
   function commitWork(fiber) {
-    if (fiber == null) {
+    if (fiber == null) return
+    if (!fiber.dom) {
+      // fiber was never visited (bug) — skip but still recurse into siblings
+      commitWork(fiber.sibling)
       return
     }
     const parent = fiber.parent.dom
-    console.log("fiber dom", fiber.dom)
     parent.appendChild(fiber.dom)
     commitWork(fiber.child)
     commitWork(fiber.sibling)
   }
 
+  function renderDebugViz() {
+    const rows = []
+    ;(function walk(fiber, depth) {
+      if (!fiber) return
+      const visited = visitedMap.has(fiber)
+      const label = fiber.type ? `<${fiber.type}>` : "#root"
+      const tag = visited ? `[${visitedMap.get(fiber)}]` : "[✗]"
+      const color = visited ? "green" : "red"
+      rows.push(`<div style="padding-left:${depth * 16}px;color:${color}">${tag} ${label}</div>`)
+      walk(fiber.child, depth + 1)
+      walk(fiber.sibling, depth)
+    })(root, 0)
+
+    document.getElementById("debug-panel").innerHTML =
+      "<b>Fiber traversal</b><br><br>" + rows.join("")
+  }
+
+  // ---
+
   function workLoop() {
     while (nextUnitOfWork != null) {
       nextUnitOfWork = performNextUnitOfWork(nextUnitOfWork)
+      renderDebugViz()
+      debugger
     }
 
     commitWork(root.child)
