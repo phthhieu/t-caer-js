@@ -182,21 +182,25 @@ const buildHeavyTree = (depth, index = 0) => {
 
 const container = document.getElementById("root")
 
-container.style = `width:${COLS * CELL}px;line-height:0;font-size:0`
+// container.style = `width:${COLS * CELL}px;line-height:0;font-size:0`
 
-const heavyElement = buildHeavyTree(DEPTH)
+// const heavyElement = buildHeavyTree(DEPTH)
 
-console.time("render")
-Tcaer.render(heavyElement, container)
-console.timeEnd("render")
+// console.time("render")
+// Tcaer.render(heavyElement, container)
+// console.timeEnd("render")
 
-// Tcaer.render(
-//   <div>
-//     <h1>
-//       <p />
-//       <a />
-//     </h1>
-//     <h2 />
-//   </div>,
-//   container
-// )
+Tcaer.render(
+  <div>
+    <div>
+      <h1>Header 1</h1>
+      <h2>Header 2</h2>
+    </div>
+
+    <div>
+      <h3>Header 3</h3>
+      <h4>Header 4</h4>
+    </div>
+  </div>,
+  container
+)
