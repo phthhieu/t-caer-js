@@ -59,6 +59,7 @@ const commitWork = (fiber) => {
 }
 
 const commitRoot = () => {
+  deletions.forEach(commitWork)
   commitWork(wipRoot.child)
   currentRoot = wipRoot
   wipRoot = null
@@ -72,12 +73,14 @@ const render = (element, container) => {
     },
     alternate: currentRoot,
   }
+  deletions = []
   nextUnitOfWork = wipRoot
 }
 
 let nextUnitOfWork = null
 let wipRoot = null
 let currentRoot = null
+let deletions = null
 
 function workLoop(deadline) {
   let shouldYield = false
@@ -119,21 +122,55 @@ function performUnitOfWork(fiber) {
 
 function reconcileChildren(wipFiber, elements) {
   let index = 0
+  let oldFiber =
+    wipFiber.alternate && wipFiber.alternate.child
   let prevSibling = null
 
-  while (index < elements.length) {
+  while (index < elements.length || oldFiber != null) {
     const element = elements[index]
-    const newFiber = {
-      type: element.type,
-      props: element.props,
-      parent: wipFiber,
-      dom: null,
+    let newFiber = null
+
+    // TODO: compare oldFiber with element
+    const sameType =
+      oldFiber && element && element.type == oldFiber.type
+    if (sameType) {
+      // Update
+      newFiber = {
+        type: oldFiber.type,
+        props: element.props,
+        dom: oldFiber.dom,
+        parent: wipFiber,
+        alternate: oldFiber,
+        effectTag: "UPDATE",
+      }
     }
+    if (element && !sameType) {
+      // Add new element
+      newFiber = {
+        type: element.type,
+        props: element.props,
+        dom: null,
+        parent: wipFiber,
+        alternate: null,
+        effectTag: "PLACEMENT",
+      }
+    }
+    if (oldFiber && !sameType) {
+      // Delete old fiber's node
+      oldFiber.effectTag = "DELETION"
+      deletions.push(oldFiber)
+    }
+
+    if (oldFiber) {
+      oldFiber = oldFiber.sibling
+    }
+
     if (index === 0) {
       wipFiber.child = newFiber
-    } else {
+    } else if (element) {
       prevSibling.sibling = newFiber
     }
+
     prevSibling = newFiber
     index++
   }
