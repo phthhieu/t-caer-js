@@ -48,12 +48,44 @@ const createDom = (fiber) => {
   return dom
 }
 
+const isNew = (prev, next) => (key) =>
+  prev[key] !== next[key]
+const isGone = (prev, next) => (key) => !(key in next)
+
+function updateDom(dom, prevProps, nextProps) {
+  // Remove old
+  Object.keys(prevProps)
+    .filter(isProperty)
+    .filter(isGone)
+    .forEach((prop) => (dom[prop] = ""))
+  // Set new or update
+  Object.keys(nextProps)
+    .filter(isProperty)
+    .filter(isNew)
+    .forEach((prop) => (dom[prop] = nextProps[prop]))
+}
+
 const commitWork = (fiber) => {
   if (!fiber) {
     return
   }
   const domParent = fiber.parent.dom
-  domParent.appendChild(fiber.dom)
+  // Handle effectTags
+  // domParent.appendChild(fiber.dom)
+  if (
+    fiber.effectTag === "PLACEMENT" &&
+    fiber.dom != null
+  ) {
+    domParent.appendChild(fiber.dom)
+  } else if (fiber.effectTag === "DELETION") {
+    domParent.removeChild(fiber.dom)
+  } else if (
+    fiber.effectTag === "UPDATE" &&
+    fiber.dom != null
+  ) {
+    updateDom(fiber.dom, fiber.alternate.props, fiber.props)
+  }
+
   commitWork(fiber.child)
   commitWork(fiber.sibling)
 }
