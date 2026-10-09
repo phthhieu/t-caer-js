@@ -291,16 +291,6 @@ const container = document.getElementById("root")
 // console.timeEnd("render")
 
 Tcaer.render(
-  <div>
-    <div>
-      <h1>Header 1</h1>
-      <h2>Header 2</h2>
-    </div>
-
-    <div>
-      <h3>Header 3</h3>
-      <h4>Header 4</h4>
-    </div>
-  </div>,
+  <button onClick={() => alert("test")}>Click me</button>,
   container
 )
