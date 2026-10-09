@@ -33,17 +33,18 @@ const createElement = (type, props, ...children) => {
   }
 }
 
+const isEvent = (key) => key.startsWith("on")
+
+const isProperty = (key) =>
+  key !== "children" && !isEvent(key)
+
 const createDom = (fiber) => {
   const dom =
     fiber.type === "TEXT_ELEMENT"
       ? document.createTextNode("")
       : document.createElement(fiber.type)
 
-  const isProperty = (key) => key !== "children"
-
-  Object.keys(fiber.props)
-    .filter(isProperty)
-    .forEach((name) => (dom[name] = fiber.props[name]))
+  updateDom(dom, {}, fiber.props)
 
   return dom
 }
@@ -53,7 +54,19 @@ const isNew = (prev, next) => (key) =>
 const isGone = (prev, next) => (key) => !(key in next)
 
 function updateDom(dom, prevProps, nextProps) {
-  // Remove old
+  // Remove event listener
+  Object.keys(prevProps)
+    .filter(isEvent)
+    .filter(
+      (prop) =>
+        !(key in nextProps) ||
+        isNew(prevProps, nextProps)(key)
+    )
+    .forEach((name) => {
+      const eventType = name.toLowerCase().substring(2)
+      dom.removeEventListener(eventType, prevProps[name])
+    })
+  // Remove old property
   Object.keys(prevProps)
     .filter(isProperty)
     .filter(isGone)
@@ -61,8 +74,18 @@ function updateDom(dom, prevProps, nextProps) {
   // Set new or update
   Object.keys(nextProps)
     .filter(isProperty)
-    .filter(isNew)
-    .forEach((prop) => (dom[prop] = nextProps[prop]))
+    .filter(isNew(prevProps, nextProps))
+    .forEach((prop) => {
+      dom[prop] = nextProps[prop]
+    })
+  // Add event listener
+  Object.keys(nextProps)
+    .filter(isEvent)
+    .filter(isNew(prevProps, nextProps))
+    .forEach((name) => {
+      const eventType = name.toLowerCase().substring(2)
+      dom.addEventListener(eventType, nextProps[name])
+    })
 }
 
 const commitWork = (fiber) => {
