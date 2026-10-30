@@ -59,8 +59,8 @@ function updateDom(dom, prevProps, nextProps) {
     .filter(isEvent)
     .filter(
       (prop) =>
-        !(key in nextProps) ||
-        isNew(prevProps, nextProps)(key)
+        !(prop in nextProps) ||
+        isNew(prevProps, nextProps)(prop)
     )
     .forEach((name) => {
       const eventType = name.toLowerCase().substring(2)
@@ -92,14 +92,21 @@ const commitWork = (fiber) => {
   if (!fiber) {
     return
   }
-  const domParent = fiber.parent.dom
+
+  let domParent = null
+  let fiberParent = fiber.parent
+  while (domParent == null) {
+    domParent = fiberParent.dom
+    fiberParent = fiberParent.parent
+  }
+
   if (
     fiber.effectTag === "PLACEMENT" &&
     fiber.dom != null
   ) {
     domParent.appendChild(fiber.dom)
   } else if (fiber.effectTag === "DELETION") {
-    domParent.removeChild(fiber.dom)
+    commitDeletion(fiber, domParent)
   } else if (
     fiber.effectTag === "UPDATE" &&
     fiber.dom != null
@@ -109,6 +116,14 @@ const commitWork = (fiber) => {
 
   commitWork(fiber.child)
   commitWork(fiber.sibling)
+}
+
+const commitDeletion = (fiber, domParent) => {
+  if (fiber.dom) {
+    domParent.removeChild(fiber.dom)
+  } else {
+    commitDeletion(fiber.child, domParent)
+  }
 }
 
 const commitRoot = () => {
@@ -150,7 +165,7 @@ function workLoop(deadline) {
 requestIdleCallback(workLoop)
 
 function updateFunctionalComponent(fiber) {
-  const elements = fiber.type(fiber.props)
+  const elements = [fiber.type(fiber.props)]
 
   reconcileChildren(fiber, elements)
 }
@@ -165,7 +180,7 @@ function updateHostComponent(fiber) {
 
 function performUnitOfWork(fiber) {
   const isFunctionalComponent =
-    (typeof fiber.type) instanceof Function
+    fiber.type instanceof Function
 
   if (isFunctionalComponent) {
     updateFunctionalComponent(fiber)
