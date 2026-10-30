@@ -290,7 +290,10 @@ const container = document.getElementById("root")
 // Tcaer.render(heavyElement, container)
 // console.timeEnd("render")
 
-Tcaer.render(
-  <button onClick={() => alert("test")}>Click me</button>,
-  container
-)
+function App(props) {
+  return (
+    <button onClick={() => alert("test")}>Click me</button>
+  )
+}
+
+Tcaer.render(<App />, container)
