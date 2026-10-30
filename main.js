@@ -93,8 +93,6 @@ const commitWork = (fiber) => {
     return
   }
   const domParent = fiber.parent.dom
-  // Handle effectTags
-  // domParent.appendChild(fiber.dom)
   if (
     fiber.effectTag === "PLACEMENT" &&
     fiber.dom != null
@@ -151,13 +149,29 @@ function workLoop(deadline) {
 
 requestIdleCallback(workLoop)
 
-function performUnitOfWork(fiber) {
+function updateFunctionalComponent(fiber) {
+  const elements = fiber.type(fiber.props)
+
+  reconcileChildren(fiber, elements)
+}
+
+function updateHostComponent(fiber) {
   if (fiber.dom == null) {
     fiber.dom = createDom(fiber)
   }
-
   const elements = fiber.props.children
   reconcileChildren(fiber, elements)
+}
+
+function performUnitOfWork(fiber) {
+  const isFunctionalComponent =
+    (typeof fiber.type) instanceof Function
+
+  if (isFunctionalComponent) {
+    updateFunctionalComponent(fiber)
+  } else {
+    updateHostComponent(fiber)
+  }
 
   if (fiber.child) {
     return fiber.child
