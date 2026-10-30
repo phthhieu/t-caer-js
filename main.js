@@ -59,8 +59,8 @@ function updateDom(dom, prevProps, nextProps) {
     .filter(isEvent)
     .filter(
       (prop) =>
-        !(key in nextProps) ||
-        isNew(prevProps, nextProps)(key)
+        !(prop in nextProps) ||
+        isNew(prevProps, nextProps)(prop)
     )
     .forEach((name) => {
       const eventType = name.toLowerCase().substring(2)
@@ -69,7 +69,7 @@ function updateDom(dom, prevProps, nextProps) {
   // Remove old property
   Object.keys(prevProps)
     .filter(isProperty)
-    .filter(isGone)
+    .filter(isGone(prevProps, nextProps))
     .forEach((prop) => (dom[prop] = ""))
   // Set new or update
   Object.keys(nextProps)
@@ -92,16 +92,21 @@ const commitWork = (fiber) => {
   if (!fiber) {
     return
   }
-  const domParent = fiber.parent.dom
-  // Handle effectTags
-  // domParent.appendChild(fiber.dom)
+
+  let domParent = null
+  let fiberParent = fiber.parent
+  while (domParent == null) {
+    domParent = fiberParent.dom
+    fiberParent = fiberParent.parent
+  }
+
   if (
     fiber.effectTag === "PLACEMENT" &&
     fiber.dom != null
   ) {
     domParent.appendChild(fiber.dom)
   } else if (fiber.effectTag === "DELETION") {
-    domParent.removeChild(fiber.dom)
+    commitDeletion(fiber, domParent)
   } else if (
     fiber.effectTag === "UPDATE" &&
     fiber.dom != null
@@ -111,6 +116,14 @@ const commitWork = (fiber) => {
 
   commitWork(fiber.child)
   commitWork(fiber.sibling)
+}
+
+const commitDeletion = (fiber, domParent) => {
+  if (fiber.dom) {
+    domParent.removeChild(fiber.dom)
+  } else {
+    commitDeletion(fiber.child, domParent)
+  }
 }
 
 const commitRoot = () => {
@@ -136,6 +149,8 @@ let nextUnitOfWork = null
 let wipRoot = null
 let currentRoot = null
 let deletions = null
+let wipFiber = null
+let hookIndex = 0
 
 function workLoop(deadline) {
   let shouldYield = false
@@ -151,17 +166,31 @@ function workLoop(deadline) {
 
 requestIdleCallback(workLoop)
 
-function performUnitOfWork(fiber) {
+function updateFunctionalComponent(fiber) {
+  wipFiber = fiber
+  hookIndex = 0
+  wipFiber.hooks = []
+  const elements = [fiber.type(fiber.props)]
+  reconcileChildren(fiber, elements)
+}
+
+function updateHostComponent(fiber) {
   if (fiber.dom == null) {
     fiber.dom = createDom(fiber)
   }
-
-  if (fiber.parent) {
-    fiber.parent.dom.appendChild(fiber.dom)
-  }
-
   const elements = fiber.props.children
   reconcileChildren(fiber, elements)
+}
+
+function performUnitOfWork(fiber) {
+  const isFunctionalComponent =
+    fiber.type instanceof Function
+
+  if (isFunctionalComponent) {
+    updateFunctionalComponent(fiber)
+  } else {
+    updateHostComponent(fiber)
+  }
 
   if (fiber.child) {
     return fiber.child
@@ -234,6 +263,7 @@ function reconcileChildren(wipFiber, elements) {
 const Tcaer = {
   createElement,
   render,
+  useState,
 }
 
 const DEPTH = 16
@@ -280,6 +310,30 @@ const buildHeavyTree = (depth, index = 0) => {
   )
 }
 
+function useState(initial) {
+  const oldHook =
+    wipFiber.alternate &&
+    wipFiber.alternate.hooks &&
+    wipFiber.alternate.hooks[hookIndex]
+
+  const hook = { state: oldHook ? oldHook.state : initial }
+
+  const setState = (newState) => {
+    hook.state = newState
+    wipRoot = {
+      dom: currentRoot.dom,
+      props: currentRoot.props,
+      alternate: currentRoot,
+    }
+    deletions = []
+    nextUnitOfWork = wipRoot
+  }
+
+  wipFiber.hooks.push(hook)
+  hookIndex++
+  return [hook.state, setState]
+}
+
 const container = document.getElementById("root")
 
 // container.style = `width:${COLS * CELL}px;line-height:0;font-size:0`
@@ -290,7 +344,16 @@ const container = document.getElementById("root")
 // Tcaer.render(heavyElement, container)
 // console.timeEnd("render")
 
-Tcaer.render(
-  <button onClick={() => alert("test")}>Click me</button>,
-  container
-)
+function App(props) {
+  const [count, setCount] = Tcaer.useState(0)
+  return (
+    <div>
+      <button onClick={() => setCount(count + 1)}>
+        Click me
+      </button>
+      <div>Counter {count}</div>
+    </div>
+  )
+}
+
+Tcaer.render(<App />, container)
